@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 import logging
 import os
@@ -24,21 +23,12 @@ import views
 import datetime
 from find_files import find as find_files
 
-#database
 
-# database = Flask(__name__)
-# database.config.update(
-#      SECRET_KEY=os.urandom(32),
-#      TEMPLATES_AUTO_RELOAD=True,
-#      WTF_CSRF_TIME_LIMIT=None,
-#  )
+#For servomotor
+from gpiozero import Servo
+import RPi.GPIO as GPIO
+from time import sleep
 
-# database.config['MYSQL_HOST'] = 'localhost:3306'
-# database.config['MYSQL_USER'] = 'root'
-# database.config['MYSQL_PASSWORD'] = '2017130891'
-# database.config['MYSQL_DB'] = 'login'
-
-#db = MySQL(database)
 
 database = mysql.connector.connect(user='root',password='26799',
                            host='127.0.0.1',
@@ -75,24 +65,24 @@ app.config.update(
 )
 app.config.from_envvar('APP_SETTINGS_FILE')
 
-#pi_camera = VideoCamera(flip=False)
-
-#db = MySQL(app)
-#Configure GPIO
-
 #Define the pins that you want
-motor = 20
+servopin = 26
+servopin2=16
+
 #Motor status
-motorsts = 0
 
-# GPIO.setmode(GPIO.BCM)
+
+GPIO.setmode(GPIO.BCM)
 # GPIO.setwarnings(False)
-# buttonSts = GPIO.LOW
 
-# GPIO.setup(motor, GPIO.OUT)
+#Defining pins
+GPIO.setup(servopin,GPIO.OUT)
+GPIO.setup(servopin2,GPIO.OUT)
 
-# GPIO.output(motor,GPIO.LOW)
-
+usb =GPIO.PWM(servopin,50)
+usb.start(0)
+sorc =GPIO.PWM(servopin2,50)
+sorc.start(0)
 
 
 # Configure CSRF protection.
@@ -100,18 +90,6 @@ csrf = flask_wtf.csrf.CSRFProtect(app)
 
 app.register_blueprint(api.api_blueprint)
 app.register_blueprint(views.views_blueprint)
-
-
-# @app.route("/<deviceName>/<action>")
-# def action(deviceName, action):
-#     if deviceName == 'motor':
-#         GPIO.output(motor,GPIO.HIGH)
-
-#     template_data = {
-#         'motor' : motorsts
-#         }
-#     motorsts = GPIO.input(motor)
-#     return render_template('index.html', **template_data)
 
 
 @app.errorhandler(flask_wtf.csrf.CSRFError)
@@ -140,27 +118,37 @@ def handle_error(e):
 
 @app.route('/home')
 def home():
-    return render_template(
-        'index.html',
-        custom_elements_files=find_files.custom_elements_files())
-#def gen(camera):
-    #while True:
-       #frame = camera.get_frame()
-       #yield(b'--frame\r\n'
-        #       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-
-#@app.route('/video_feed')
-#def video_feed():
-    #return Response(gen(pi_camera),
-       #             mimetype='multipart/x-mixed-replace; boundary=frame')
+    return render_template('index.html',custom_elements_files=find_files.custom_elements_files())
 
 
-# username = request.form['username']
-# password = request.form['password']
-# cursor = database.cursor()
-# cursor.execute('SELECT * FROM from login_info WHERE username = %s AND password = %s',(username,password))
+@app.route('/connections')
+def connect():
+    return render_template('connections.html',custom_elements_files=find_files.custom_elements_files())  
 
-# template = ''
+  
+@app.route("/<device>/<action>")
+def action(device, action):
+       #p.start(0)
+       if device ==  'source':
+           p = sorc
+       if device == 'usb':
+           p = usb
+       if action == 'on':
+                 p.ChangeDutyCycle(1.5)
+                  #servo.value = 0
+                 sleep(1)
+                 #servo.value = None
+                 #sleep(5)
+       if action == 'off':
+           #servo.value = 1
+           p.ChangeDutyCycle(5)
+           sleep(1)
+           #p.ChangeDutyCycle()
+           #servo.value = None
+           #sleep(5)
+       p.ChangeDutyCycle(40)
+       return render_template('connections.html',custom_elements_files=find_files.custom_elements_files())
+
 
 @app.route('/',methods=['GET','POST'])
 def login():
@@ -169,8 +157,7 @@ def login():
     # Create variables for easy access
         username = request.form['username']
         password = request.form['password']
-        #logger.info(username,password)
-        
+        #logger.info(username,password) 
         #cursor = database.connection.cursor(.cursors.DictCursor)
         cursor.execute("SELECT * FROM login WHERE username = %s AND password = %s",(username,password))
         # Check if account exists using MySQL
@@ -193,7 +180,6 @@ def login():
                     return render_template(
                         'index.html',
                         custom_elements_files=find_files.custom_elements_files(),msg=msg)
-                
             else:
                 # Account doesnt exist or username/password incorrect
                 #return "login unsuc"
@@ -208,46 +194,7 @@ def login():
          'login.html',
          custom_elements_files=find_files.custom_elements_files(),msg = msg)
 
-
-# @app.route('/')
-# def home():
-#     templateData = {
-#        'motor' : 0
-#     }
-#     return render_template('index.html', **templateData)
-
-# @app.route('/login/')
-# def home():
-#     templateData = {
-#        'motor' : 0
-#     }
-#     return render_template('login.html', **templateData)
-
-
-
-# @app.route('/')
-# def home():
-#    templateData = {
-#       'motor' : 0,
-      
-#    }
-#    return render_template('index.html', **templateData)
-
-# @app.route('/<led>/<action>')
-# def led(led, action):
-#    #GPIO.output(int(led), int(action))
-#    templateData = {
-#       #'motor' : GPIO.input(motor)
-#       'motor' : 1
-#    }
-#    return render_template('index.html', **templateData)
-
-#pin_state  =  socket_api.socket_send()
-
-#logger.info(pin_state)
-
-
-
+  
 def main(): 
     #database.run(debug=True)
     socketio = socket_api.socketio
@@ -262,4 +209,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
